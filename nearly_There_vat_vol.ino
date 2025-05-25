@@ -419,6 +419,74 @@ float sphericalSegmentVolume(float R_tank, float r_cap_depth, float h_fill_in_ca
     
     return volume_mm3 / 1e6f; // Convert mm^3 to Liters
 }
+
+// Calculates volume of one horizontal SPHERICAL end cap using numerical integration of circular segments.
+// R_tank_base: Radius of the cylinder at the point where the cap attaches (mm).
+// cap_actual_depth: The geometric depth of the spherical cap (mm).
+// y_fill_tank: Overall fill height in the tank, measured from the absolute bottom of the tank (mm).
+// num_slices: Number of slices for numerical integration.
+// Returns volume in Liters.
+float horizontalSphericalCapVolume_integrated(float R_tank_base, float cap_actual_depth, float y_fill_tank, int num_slices) {
+    if (y_fill_tank <= 1e-3f || cap_actual_depth <= 1e-3f || R_tank_base <= 1e-3f) {
+        return 0.0f; // Handles zero or negligible depth/fill/radius
+    }
+
+    // Calculate the radius of the sphere (mr) from which the cap is made.
+    // mr = (cap_depth^2 + R_base^2) / (2 * cap_depth)
+    // This formula requires cap_actual_depth > 0, which is ensured by the check above.
+    float mr = (cap_actual_depth * cap_actual_depth + R_tank_base * R_tank_base) / (2.0f * cap_actual_depth);
+
+    float total_volume_mm3 = 0.0f;
+    float dx = cap_actual_depth / (float)num_slices; // Thickness of each slice
+
+    // x_sphere_center_rel_base: x-coordinate of the sphere's center, relative to the cap's base (cylinder-cap interface).
+    // If cap base is at x=0 and cap tip is at x=cap_actual_depth:
+    // Sphere center is located at x = cap_actual_depth - mr.
+    float x_sphere_center_rel_base = cap_actual_depth - mr;
+
+    for (int i = 0; i < num_slices; i++) {
+        // x_pos_in_cap is distance from the cylinder-cap interface into the cap (from base towards apex of cap)
+        float x_pos_in_cap = (i + 0.5f) * dx;
+
+        // x_rel_sphere_center: x-coordinate of the current slice relative to the sphere's center.
+        float x_rel_sphere_center = x_pos_in_cap - x_sphere_center_rel_base;
+        
+        float r_slice_sq = mr * mr - x_rel_sphere_center * x_rel_sphere_center;
+
+        // Check against a small epsilon for stability (e.g. if x_rel_sphere_center is extremely close to mr due to float math)
+        // This also handles cases where x_pos_in_cap might slightly exceed cap_actual_depth if num_slices is small or due to (i+0.5)*dx.
+        if (r_slice_sq < 1e-6f) { 
+            continue; 
+        }
+        float r_slice = sqrtf(r_slice_sq);
+
+        // Determine the fill height within this specific vertical circular slice.
+        float h_in_slice = constrain(y_fill_tank, 0.0f, 2.0f * r_slice);
+
+        if (h_in_slice <= 1e-3f) { // Effectively empty or too small to calculate segment
+            continue;
+        }
+        
+        float area_segment;
+        if (fabsf(h_in_slice - 2.0f * r_slice) < 1e-3f) { // Effectively full circle for this slice
+            area_segment = PI * r_slice * r_slice;
+        } else {
+            // Area of circular segment
+            float term_R_minus_h = r_slice - h_in_slice;
+            float acos_arg = term_R_minus_h / r_slice;
+            acos_arg = constrain(acos_arg, -1.0f, 1.0f);
+            
+            float sqrt_term_val = 2.0f * r_slice * h_in_slice - h_in_slice * h_in_slice;
+            if (sqrt_term_val < 0) sqrt_term_val = 0;
+
+            area_segment = r_slice * r_slice * acosf(acos_arg) - term_R_minus_h * sqrtf(sqrt_term_val);
+        }
+        
+        total_volume_mm3 += area_segment * dx;
+    }
+
+    return total_volume_mm3 / 1e6f; // Convert mm^3 to Liters
+}
 // --- TRUE ELLIPSOIDAL (TankCalc-style) END CAP --- (Now unused for horizontal elliptical, replaced by tankCalcHorizontalEllipticalCapVolume)
 /*
 float ellipsoidalCapVolume(float a, float b, float h) {
@@ -593,7 +661,7 @@ float computeTankCapacity() {
                   // This is the line to change:
                   // vol += 2.0f * sphericalSegmentVolume(R, CAP, CAP); // Old call (CAP for full fill in cap)
                   // Change to:
-                  vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, 2.0f * R, NUM_CONE_SLICES); // Using CAP for cap depth
+                  vol += 2.0f * horizontalSphericalCapVolume_integrated(R, CAP, 2.0f * R, NUM_CONE_SLICES); // Using new spherical integrated function
                   break;
         }
     }
@@ -1441,7 +1509,7 @@ void sendUptime() {
                     // This is the line to change:
                     // vol += 2.0f * sphericalSegmentVolume(R, CAP, minf(height_mm, CAP)); // Old call
                     // Change to:
-                    vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, height_mm, NUM_CONE_SLICES); // Using CAP for cap depth
+                    vol += 2.0f * horizontalSphericalCapVolume_integrated(R, CAP, height_mm, NUM_CONE_SLICES); // Using new spherical integrated function
                     break;
             }
         }
