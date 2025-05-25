@@ -490,21 +490,32 @@ float tankCalcHorizontalEllipticalCapVolume(float R_tank_base, float cap_depth_D
 
 // --- Sloped Floor Volume (vertical only) ---
 float computeVolumeVertical(float measuredH) {
-    const int N = 25;
-    float dy = (2 * R) / N;
-    float theta = CAP * PI / 180.0f; // Degrees to radians if using angle for slope
-    float hDrop = 2 * R * tanf(theta);
-    float vol = 0;
-    for (int i = 0; i < N; i++) {
-        float y = -R + (i + 0.5f) * dy;
-        float floorOffset = ((y + R) / (2 * R)) * hDrop;
-        float localH = measuredH - floorOffset;
-        if (localH < 0) localH = 0;
-        if (localH > H_MAX + hDrop) localH = H_MAX + hDrop;
-        float sliceWidth = 2 * sqrtf(R * R - y * y);
-        vol += sliceWidth * localH * dy;
+    // CAP for vertical tanks is slope in degrees.
+    // Check if the floor is flat (slope angle CAP is zero or negligible)
+    if (fabsf(CAP) < 1e-3f) { // Assuming CAP holds the slope angle for vertical tanks
+        // Flat bottom: Use direct formula PI * R^2 * H
+        return PI * R * R * measuredH; // Result in mm^3
+    } else {
+        // Sloped bottom: Use existing numerical integration
+        const int N = 25;
+        float dy = (2 * R) / N;
+        float theta = CAP * PI / 180.0f; // Degrees to radians
+        float hDrop = 2 * R * tanf(theta);
+        float vol = 0;
+        for (int i = 0; i < N; i++) {
+            float y = -R + (i + 0.5f) * dy;
+            float floorOffset = ((y + R) / (2 * R)) * hDrop;
+            float localH = measuredH - floorOffset;
+            if (localH < 0) localH = 0;
+            // The following constraint might need review based on H_MAX definition,
+            // but for now, retain original logic for sloped part.
+            if (localH > H_MAX + hDrop) localH = H_MAX + hDrop; 
+            
+            float sliceWidth = 2 * sqrtf(R * R - y * y);
+            vol += sliceWidth * localH * dy;
+        }
+        return vol; // Result in mm^3
     }
-    return vol; // mm^3
 }
 
 // --- TANK CAPACITY (MAX) ---
