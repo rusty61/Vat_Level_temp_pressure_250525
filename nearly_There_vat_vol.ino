@@ -303,7 +303,7 @@ float milkNow =6;    // to be removed once temp robe attached
 									static float horizontalConicalCapVolume(float R_base, float H_cap, float y_fill_tank, int num_slices); // New prototype
 									// static float sphericalSegmentVolume(float r, float h); // Old prototype
 									static float sphericalSegmentVolume(float R_tank, float r_cap_depth, float h_fill_in_cap); // New prototype
-								// static float ellipsoidalCapVolume(float r, float b, float h); // Now unused
+								// static float tankCalcHorizontalEllipticalCapVolume(float R_tank_base, float cap_depth_D, float y_fill_tank, int num_slices); // New prototype
 
 
 									static float computeTotalVolume(); */
@@ -430,70 +430,62 @@ float ellipsoidalCapVolume(float a, float b, float h) {
 }
 */
 
-// Calculates volume of one horizontal elliptical end cap based on TankCalc Formula (1)
-// R_tank: Radius of the cylindrical part of the tank
-// r_cap: Depth of the elliptical cap (TankCalc's 'r' for caps)
-// y_fill: Fill height in the tank
-// Returns volume in Liters (assumes inputs are in mm)
-float tankCalcHorizontalEllipticalCapVolume(float R_tank, float r_cap, float y_fill) {
-    if (y_fill <= 0) return 0.0f;
-    // Ensure y_fill does not exceed tank diameter 2*R_tank for formula stability
-    y_fill = constrain(y_fill, 0.0f, 2.0f * R_tank);
-
-    // Term (R_tank - y_fill) can be negative if y_fill > R_tank. Let's call it 'h_from_center'.
-    // If y_fill is from bottom, then distance from center is R_tank - y_fill.
-    // However, the formula appears to be structured for y_fill from 0 to 2R.
-    // Let's use 'y' as in TankCalc's formula display (content height)
-    
-    // Argument for acos: (R_tank - y_fill) / R_tank
-    // This can be written as 1.0f - y_fill / R_tank if y_fill is from top, 
-    // or (R_tank - y_fill) / R_tank if y_fill is from bottom.
-    // TankCalc formulas typically measure y from the bottom.
-    float h_term = R_tank - y_fill; // Height relative to center. Can be negative.
-
-    if (y_fill >= 2.0f * R_tank) { // If full or overflowing at this cap part
-         // Volume of half an ellipsoid: (2/3) * PI * R_tank^2 * r_cap
-         // But TankCalc formula (1) is for a full spheroid section.
-         // For a half spheroid (one cap), full volume is (2/3) * PI * R_tank * R_tank_effective_for_ellipse_formula * r_cap
-         // TankCalc's formula (1) for full spheroid (2 caps): (4/3) * PI * R^2 * r (where r is cap depth)
-         // Let's re-check formula (1) from TankCalc site:
-         // v_spheroid = π * r_cap * ( (R_tank² - h_from_center²) * acos(h_from_center/R_tank) - h_from_center * sqrt(R_tank² - h_from_center²) ) / R_tank
-         // This formula (1) is for "half-ellipses at each end (they can be treated as one spheroid)". So it's for TWO caps.
-         // So for one cap, we divide by 2.
-         // Full volume for one cap (y_fill >= 2*R_tank, so h_from_center = -R_tank):
-         // acos(-1) = PI. sqrt term is 0.
-         // v_one_cap_full = 0.5f * PI * r_cap * ( (R_tank*R_tank - (-R_tank)*(-R_tank)) * PI - (-R_tank) * 0 ) / R_tank
-         // v_one_cap_full = 0.5f * PI * r_cap * (0 * PI + 0) / R_tank = 0. This is wrong.
-         // The formula (1) v = πr((R²-(R-y)²)acos((R-y)/R)-(R-y)√(R²-(R-y)²))/R is for the total volume of TWO caps.
-         // The formula for volume of an ellipsoidal cap (semi-ellipsoid) is 2/3 * PI * a * b * c.
-         // If it's a prolate/oblate spheroid cap, a=R_tank, b=R_tank, c=r_cap. Volume = (2/3)PI * R_tank^2 * r_cap.
-         // This is not matching. Let's trust the segment formula directly.
-
-         // If y_fill >= 2*R_tank, the cap is full. The volume of one ellipsoidal cap with semi-axes R_tank, R_tank, r_cap is (2/3) * PI * R_tank^2 * r_cap.
-         // Let's use half of TankCalc's equation (9) for a full elliptical end cap: (2.0f/3.0f) * PI * R_tank * R_tank * r_cap / 1e6f;
-         // This is (2/3) * PI * a^2 * b where a=R_tank, b=r_cap (depth).
-         return (2.0f / 3.0f) * PI * R_tank * R_tank * r_cap / 1e6f; // Volume in Liters
+// Calculates volume of one horizontal elliptical end cap using numerical integration of circular segments.
+// R_tank_base: Radius of the cylinder at the point where the cap attaches (mm).
+// cap_depth_D: The depth of the elliptical cap (length along the tank's main axis from base to tip of cap) (mm).
+// y_fill_tank: Overall fill height in the tank, measured from the absolute bottom of the tank (mm).
+// num_slices: Number of slices for numerical integration.
+// Returns volume in Liters.
+float tankCalcHorizontalEllipticalCapVolume(float R_tank_base, float cap_depth_D, float y_fill_tank, int num_slices) {
+    if (y_fill_tank <= 1e-3f || cap_depth_D <= 1e-3f || R_tank_base <= 1e-3f) {
+        return 0.0f;
     }
 
-    float common_term_acos_arg = (R_tank - y_fill) / R_tank;
-    if (common_term_acos_arg < -1.0f) common_term_acos_arg = -1.0f;
-    if (common_term_acos_arg > 1.0f) common_term_acos_arg = 1.0f;
-    
-    float acos_val = acosf(common_term_acos_arg);
-    
-    float R_sq = R_tank * R_tank;
-    float h_from_center_sq = (R_tank - y_fill) * (R_tank - y_fill);
-    
-    // Ensure argument of sqrt is non-negative
-    float sqrt_arg = R_sq - h_from_center_sq;
-    if (sqrt_arg < 0) sqrt_arg = 0;
-    
-    float sqrt_val = sqrtf(sqrt_arg);
-    
-    float numerator = (R_sq - h_from_center_sq) * acos_val - (R_tank - y_fill) * sqrt_val;
-    float volume_mm3_two_caps = PI * r_cap * numerator / R_tank;
-    
-    return (volume_mm3_two_caps / 2.0f) / 1e6f; // Volume for one cap, in Liters
+    float total_volume_mm3 = 0.0f;
+    float dx = cap_depth_D / (float)num_slices; // Thickness of each slice
+
+    for (int i = 0; i < num_slices; i++) {
+        // x_pos_in_cap is distance from the cylinder-cap interface into the cap (from base towards apex)
+        float x_pos_in_cap = (i + 0.5f) * dx;
+
+        // Calculate the radius of the vertical circular slice at this x_pos_in_cap
+        // Ellipse formula: (x/D)^2 + (r_slice/R_base)^2 = 1
+        // Our x_pos_in_cap is from base (0) to depth D (tip).
+        // So, r_slice = R_tank_base * sqrt(1 - (x_pos_in_cap / cap_depth_D)^2)
+        float r_slice_sq_term = x_pos_in_cap / cap_depth_D;
+        float r_slice = R_tank_base * sqrtf(1.0f - r_slice_sq_term * r_slice_sq_term);
+
+        if (r_slice <= 1e-3f) { // Effectively zero radius or invalid
+            continue;
+        }
+
+        // Determine the fill height within this specific vertical circular slice.
+        float h_in_slice = constrain(y_fill_tank, 0.0f, 2.0f * r_slice);
+
+        if (h_in_slice <= 1e-3f) { // Effectively empty or too small to calculate segment
+            continue;
+        }
+        
+        float area_segment;
+        if (fabsf(h_in_slice - 2.0f * r_slice) < 1e-3f) { // Effectively full circle for this slice
+            area_segment = PI * r_slice * r_slice;
+        } else {
+            // Area of circular segment: r_slice^2 * acos((r_slice-h_in_slice)/r_slice) - (r_slice-h_in_slice) * sqrt(2*r_slice*h_in_slice - h_in_slice^2)
+            float term_R_minus_h = r_slice - h_in_slice;
+            
+            float acos_arg = term_R_minus_h / r_slice;
+            acos_arg = constrain(acos_arg, -1.0f, 1.0f); // Clamp argument to acos
+            
+            float sqrt_arg = 2.0f * r_slice * h_in_slice - h_in_slice * h_in_slice;
+            if (sqrt_arg < 0) sqrt_arg = 0; // Clamp due to potential float inaccuracies
+
+            area_segment = r_slice * r_slice * acosf(acos_arg) - term_R_minus_h * sqrtf(sqrt_arg);
+        }
+        
+        total_volume_mm3 += area_segment * dx;
+    }
+
+    return total_volume_mm3 / 1e6f; // Convert mm^3 to Liters
 }
 
 // --- Sloped Floor Volume (vertical only) ---
@@ -524,9 +516,14 @@ float computeTankCapacity() {
         // float b = horizontalToVerticalCapDepth(R, CAP); // Keep for now
         vol = horizontalCylinderVolume(R, L, 2.0f * R);
         switch (coneTYPE) {
-            case 1: vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, 2.0f * R); break; // Full volume for two caps
-            case 2: vol += 2.0f * horizontalConicalCapVolume(R, CAP, 2.0f * R, NUM_CONE_SLICES); break; // Updated call
-            case 3: vol += 2.0f * sphericalSegmentVolume(R, CAP, CAP); break; // Updated call
+            case 1: vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, 2.0f * R, NUM_CONE_SLICES); break; // Elliptical, updated in prior step
+            case 2: vol += 2.0f * horizontalConicalCapVolume(R, CAP, 2.0f * R, NUM_CONE_SLICES); break; // Conical
+            case 3: // Spherical
+                  // This is the line to change:
+                  // vol += 2.0f * sphericalSegmentVolume(R, CAP, CAP); // Old call (CAP for full fill in cap)
+                  // Change to:
+                  vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, R, 2.0f * R, NUM_CONE_SLICES); // New call for spherical, using R for cap depth, 2.0f*R for full height
+                  break;
         }
     }
     return vol;
@@ -1364,13 +1361,16 @@ void sendUptime() {
             switch (coneTYPE) {
                 case 1:
                     // Use the new function for horizontal elliptical caps
-                    vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, height_mm);
+                    vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, height_mm, NUM_CONE_SLICES);
                     break;
                 case 2:
                     vol += 2.0f * horizontalConicalCapVolume(R, CAP, height_mm, NUM_CONE_SLICES); // Updated call
                     break;
-                case 3:
-                    vol += 2.0f * sphericalSegmentVolume(R, CAP, minf(height_mm, CAP)); // Updated call
+                case 3: // Spherical
+                    // This is the line to change:
+                    // vol += 2.0f * sphericalSegmentVolume(R, CAP, minf(height_mm, CAP)); // Old call
+                    // Change to:
+                    vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, R, height_mm, NUM_CONE_SLICES); // New call for spherical
                     break;
             }
         }
@@ -1561,9 +1561,12 @@ float diameter;
         // float b = horizontalToVerticalCapDepth(R, CAP); // Keep for now
         tankVolumeTotal = horizontalCylinderVolume(R, L, 2 * R);
         switch (coneTYPE) {
-            case 1: tankVolumeTotal += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, 2.0f * R); break; // Full volume for two caps
-            case 2: tankVolumeTotal += 2.0f * horizontalConicalCapVolume(R, CAP, 2.0f * R, NUM_CONE_SLICES); break; // Updated call
-            case 3: tankVolumeTotal += 2.0f * sphericalSegmentVolume(R, CAP, CAP); break; // Updated call
+            case 1: tankVolumeTotal += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, 2.0f * R, NUM_CONE_SLICES); break; // Elliptical, updated in prior step
+            case 2: tankVolumeTotal += 2.0f * horizontalConicalCapVolume(R, CAP, 2.0f * R, NUM_CONE_SLICES); break; // Conical
+            case 3: // Spherical
+                  // tankVolumeTotal += 2.0f * sphericalSegmentVolume(R, CAP, CAP); // Old call (CAP for full fill in cap)
+                  tankVolumeTotal += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, R, 2.0f * R, NUM_CONE_SLICES); // New call for spherical, using R for cap depth, 2.0f*R for full height
+                  break;
         }
     }
     Serial.printf("Orientation: %s\n", orientation == 0 ? "Vertical" : "Horizontal");
