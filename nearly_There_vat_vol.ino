@@ -605,7 +605,7 @@ float computeTotalVolume() {
         float vol_cyl = horizontalCylinderVolume(R, L, measuredH);
         float vol_caps = 0;
         switch (coneTYPE) {
-            case 1: vol_caps = 2 * tankCalcHorizontalEllipticalCapVolume(R, CAP, measuredH); break;
+            case 1: vol_caps = 2 * tankCalcHorizontalEllipticalCapVolume(R, CAP, measuredH, NUM_CONE_SLICES); break;
             case 2: vol_caps = 2 * horizontalConicalCapVolume(R, CAP, measuredH, NUM_CONE_SLICES); break; // Updated call
             case 3: vol_caps = 2 * sphericalSegmentVolume(R, CAP, minf(measuredH, CAP)); break; // Updated call
         }
