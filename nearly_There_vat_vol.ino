@@ -593,7 +593,7 @@ float computeTankCapacity() {
                   // This is the line to change:
                   // vol += 2.0f * sphericalSegmentVolume(R, CAP, CAP); // Old call (CAP for full fill in cap)
                   // Change to:
-                  vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, R, 2.0f * R, NUM_CONE_SLICES); // New call for spherical, using R for cap depth, 2.0f*R for full height
+                  vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, 2.0f * R, NUM_CONE_SLICES); // Using CAP for cap depth
                   break;
         }
     }
@@ -1441,7 +1441,7 @@ void sendUptime() {
                     // This is the line to change:
                     // vol += 2.0f * sphericalSegmentVolume(R, CAP, minf(height_mm, CAP)); // Old call
                     // Change to:
-                    vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, R, height_mm, NUM_CONE_SLICES); // New call for spherical
+                    vol += 2.0f * tankCalcHorizontalEllipticalCapVolume(R, CAP, height_mm, NUM_CONE_SLICES); // Using CAP for cap depth
                     break;
             }
         }
