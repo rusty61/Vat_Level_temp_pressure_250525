@@ -497,23 +497,59 @@ float computeVolumeVertical(float measuredH) {
         return PI * R * R * measuredH; // Result in mm^3
     } else {
         // Sloped bottom: Use existing numerical integration
-        const int N = 25;
-        float dy = (2 * R) / N;
-        float theta = CAP * PI / 180.0f; // Degrees to radians
-        float hDrop = 2 * R * tanf(theta);
+        Serial.println("--- Sloped Vertical Volume Calculation ---");
+        Serial.print("Input measuredH: "); Serial.print(measuredH); Serial.println(" mm");
+        Serial.print("Input CAP (slope): "); Serial.print(CAP); Serial.println(" degrees");
+
+        const int N = 25; // Number of slices
+        float dy = (2 * R) / N; // Slice thickness along y-axis
+        float theta = CAP * PI / 180.0f; // Slope angle in radians
+        float hDrop = 2 * R * tanf(theta); // Total height drop across diameter due to slope
+
+        Serial.print("Calculated theta: "); Serial.print(theta); Serial.println(" rad");
+        Serial.print("Calculated hDrop (total diametrical drop): "); Serial.print(hDrop); Serial.println(" mm");
+        Serial.print("Number of slices (N): "); Serial.println(N);
+        Serial.print("Slice thickness (dy): "); Serial.print(dy); Serial.println(" mm");
+
         float vol = 0;
         for (int i = 0; i < N; i++) {
-            float y = -R + (i + 0.5f) * dy;
-            float floorOffset = ((y + R) / (2 * R)) * hDrop;
+            float y = -R + (i + 0.5f) * dy; // y-coordinate of slice center (from -R to R)
+            float floorOffset = ((y + R) / (2 * R)) * hDrop; // Offset at this y due to slope
             float localH = measuredH - floorOffset;
             if (localH < 0) localH = 0;
-            // The following constraint might need review based on H_MAX definition,
-            // but for now, retain original logic for sloped part.
-            if (localH > H_MAX + hDrop) localH = H_MAX + hDrop; 
             
+            // Constraint for localH: It should not exceed the physical height of the tank wall at that point.
+            // Assuming H_MAX is the height at the shallowest point (y=-R where floorOffset=0).
+            // The wall height at position y would be H_MAX - floorOffset (if floor slopes down from where H_MAX is measured).
+            // Or, if H_MAX is nominal height and slope eats into it, then max localH is H_MAX - floorOffset.
+            // The existing constraint `if (localH > H_MAX + hDrop) localH = H_MAX + hDrop;` seems unusual.
+            // A more logical constraint might be `localH = constrain(localH, 0, H_MAX - floorOffset + (hDrop/2.0f));` (this is complex)
+            // For now, let's keep the original constraint but acknowledge it might need review if H_MAX definition is critical for sloped tanks.
+            // A simpler physical limit: localH cannot be more than measuredH if measuredH is already capped at max possible fill.
+            // And localH cannot be more than the tank's own wall height at that (y) position.
+            // For now, we keep:
+            if (localH > H_MAX + hDrop) localH = H_MAX + hDrop; // Original problematic constraint
+            // A potentially more correct constraint if H_MAX is height at y=-R:
+            // float max_physical_H_at_y = H_MAX - floorOffset; // if slope goes "down" from H_MAX point
+            // if (localH > max_physical_H_at_y) localH = max_physical_H_at_y;
+
+
             float sliceWidth = 2 * sqrtf(R * R - y * y);
-            vol += sliceWidth * localH * dy;
+            float sliceVolume = sliceWidth * localH * dy;
+            vol += sliceVolume;
+
+            // Print for first, middle, and last slice
+            if (i == 0 || i == N / 2 || i == N - 1) {
+                Serial.print("  Slice "); Serial.print(i); Serial.println(":");
+                Serial.print("    y: "); Serial.print(y); Serial.println(" mm");
+                Serial.print("    floorOffset: "); Serial.print(floorOffset); Serial.println(" mm");
+                Serial.print("    localH (liquid height in slice): "); Serial.print(localH); Serial.println(" mm");
+                Serial.print("    sliceWidth (2*sqrt(R^2-y^2)): "); Serial.print(sliceWidth); Serial.println(" mm");
+                Serial.print("    sliceVolume (width*localH*dy): "); Serial.print(sliceVolume); Serial.println(" mm^3");
+            }
         }
+        Serial.print("Calculated total vol (mm^3): "); Serial.println(vol);
+        Serial.println("--- End Sloped Vertical Volume ---");
         return vol; // Result in mm^3
     }
 }
