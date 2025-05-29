@@ -276,7 +276,7 @@
 					float REF_HEIGHT_MM = H_MAX * 0.5;  // Reference calibration height
 
 					// Sensor calibration: empty offset (raw count at 0 mm)
-					const int RAW_EMPTY = 10;  //9
+					const int RAW_EMPTY = 0;  //9
 
 
 					// --- Fluid Properties ---
@@ -843,6 +843,8 @@
 						//reconnectionCount = 0;
 						ReCnctFlag = 1;
 					// Blynk.syncVirtual(V42);
+					Blynk.setProperty(V19, "min", 0);
+          Blynk.setProperty(V19, "max", tankVolumeTotal);  // e.g. tank capacity in litres
 					#if defined DEBUG
 						Serial.print("\n---------- Messages BLYNK_CONNECTED()");
 					#endif

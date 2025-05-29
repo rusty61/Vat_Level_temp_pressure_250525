@@ -276,8 +276,8 @@
 					float REF_HEIGHT_MM = H_MAX * 0.5;  // Reference calibration height
 
 					// Sensor calibration: empty offset (raw count at 0 mm)
-					const int RAW_EMPTY = 0;  //9
-
+					int RAW_EMPTY = 0;  // now can be zeroed by end user in menu
+		      float diameter;
 
 					// --- Fluid Properties ---
 					const float REF_TEMP = 10;           // °C at which DENSITY_REF applies 10
@@ -843,8 +843,7 @@
 						//reconnectionCount = 0;
 						ReCnctFlag = 1;
 					// Blynk.syncVirtual(V42);
-					Blynk.setProperty(V19, "min", 0);
-          Blynk.setProperty(V19, "max", tankVolumeTotal);  // e.g. tank capacity in litres
+					
 					#if defined DEBUG
 						Serial.print("\n---------- Messages BLYNK_CONNECTED()");
 					#endif
@@ -1083,6 +1082,31 @@
 								String receivedMac = WiFi.macAddress();  // Get MAC address
 								//String wifi_Num  = WiFi.channel();
 								Blynk.syncVirtual(V42);                // Sync virtual pin after connection
+								Serial.println("Global variables updated from V42 sync:");
+						Serial.print("  TempCorrection: ");
+						Serial.println(TempCorrection);
+						Serial.print("  PLANT_WASH: ");
+						Serial.println(PLANT_WASH);
+						Serial.print("  HOT_WATER: ");
+						Serial.println(HOT_WATER);
+						Serial.print("  max_temp: ");
+						Serial.println(max_temp);
+						Serial.print("  H_MAX: ");
+						Serial.println(H_MAX);
+						Serial.print("  L: ");
+						Serial.println(L);
+						Serial.print("  CAP: ");
+						Serial.println(CAP);
+						Serial.print("  R (radius): ");
+						Serial.println(R);
+						Serial.print("  diameter (calculated as R*2): ");
+						Serial.println(diameter);
+						Serial.print("Orientation: ");
+						Serial.println(orientation);
+						Serial.print("Cone TYPE: ");
+						Serial.println(coneTYPE);
+						Serial.print("Zero Vat by :: ");
+						Serial.println(RAW_EMPTY);
 								Blynk.virtualWrite(V27, receivedMac);  // Send MAC address to Blynk
 																											//Blynk.virtualWrite(V25, receivedMac);
 								failureCount = 0;                      // Reset failure count
@@ -1549,10 +1573,13 @@
 										break;
 								}
 							}
+							Blynk.setProperty(V19, "min", 0);
+              Blynk.setProperty(V19, "max", tankVolumeTotal);  // e.g. tank capacity in litres
 							float pct = (tankVolumeTotal > 0.1f) ? (vol / tankVolumeTotal) * 100.0f : 0.0f;
 							Serial.printf("Volume: %.1f L  (%.1f%% full)\n", vol, pct);
 							Blynk.virtualWrite(V19, vol);
 							Blynk.virtualWrite(V12, pct);
+              colorUptime();
 						} else {
 							Serial.println("Modbus read error");
 						}
@@ -1561,7 +1588,7 @@
 						Serial.print("Temperature Correction: ");
 						Serial.println(TempCorrection);
 						Blynk.virtualWrite(V3, MilkVatTemp);
-						colorUptime();
+						
 					}
 
 
@@ -1575,13 +1602,32 @@
 					//////////////////////////////////////////////////////////////////////
 					// Function for color change  for visual apprasial
 					/////////////////////////////////////////////////////////////////////
+char lastColor[8] = ""; 
 
+void colorUptime() {
+  // pick the right color string
+  const char* newColor = (MilkVatTemp <= 5)  ? BLYNK_GREEN
+                           : (MilkVatTemp >= 10) ? BLYNK_RED
+                                                 : BLYNK_YELLOW;
+  // only send if it’s different
+  if (strcmp(newColor, lastColor) != 0) {
+    Blynk.setProperty(V3,  "color", newColor);
+    Blynk.setProperty(V19, "color", newColor);
+    Blynk.setProperty(V12, "color", newColor);
+    strcpy(lastColor, newColor);
+  }
+	Blynk.virtualWrite(V42, TempCorrection, PLANT_WASH, HOT_WATER, max_temp, H_MAX, L, CAP, R, orientation, coneTYPE, RAW_EMPTY);
+
+						Serial.println("V42 data sent to Blynk server.");
+						Serial.println("--- End V42 Send in colorUptime ---");
+}
+/*
 					void colorUptime() {
-						if (MilkVatTemp < 5) {
+						if (MilkVatTemp <= 5) {
 							Blynk.setProperty(V3, "color", BLYNK_GREEN);   // green gauge
 							Blynk.setProperty(V19, "color", BLYNK_GREEN);  // green gauge
 							Blynk.setProperty(V12, "color", BLYNK_GREEN);  // green gauge
-						} else if (MilkVatTemp > 10) {
+						} else if (MilkVatTemp >=10) {
 							Blynk.setProperty(V3, "color", BLYNK_RED);   // red gauge
 							Blynk.setProperty(V19, "color", BLYNK_RED);  // red gauge
 							Blynk.setProperty(V12, "color", BLYNK_RED);  // red gauge
@@ -1616,7 +1662,7 @@
 
 						// The original Serial.print("---------- Print to V42  "); was incomplete and can be considered replaced.
 					}
-
+*/
 					///////////////////////////////////////////////////////////////////////////////////
 					//   Timer function to start cooling profiles
 					/////////////////////////////////////////////////////////////////////////////////
@@ -1660,7 +1706,7 @@
 
 						if (ButtonUnlock) {
 							// UNLOCKED: show instructions and enable the ± widget
-							Blynk.setProperty(V14, "color", BLYNK_BLUE);
+							Blynk.setProperty(V14, "color", BLYNK_GREEN);
 							Blynk.virtualWrite(V14, "PRESS + or - TO CHANGE TEMP");
 							Blynk.virtualWrite(V5, TempCorrection);
 						} else {
@@ -1683,7 +1729,7 @@
 						}
 						// if locked, ignore any presses
 					}
-					float diameter;
+			
 
 					BLYNK_WRITE(V42) {
 						Serial.println("--- BLYNK_WRITE(V42) Triggered (Syncing from Server) ---");
@@ -1705,9 +1751,10 @@
 						R = param[7].asFloat();  // param[7] is Radius 'R'
 						orientation = param[8].asInt();
 						coneTYPE = param[9].asInt();
+						RAW_EMPTY = param[10].asInt();
 						// Update global 'diameter' based on R from sync
 						diameter = R * 2.0f;
-
+/*
 						Serial.println("Global variables updated from V42 sync:");
 						Serial.print("  TempCorrection: ");
 						Serial.println(TempCorrection);
@@ -1730,7 +1777,7 @@
 						Serial.print("Orientation: ");
 						Serial.println(orientation);
 						Serial.print("Cone TYPE: ");
-						Serial.println(coneTYPE);
+						Serial.println(coneTYPE);*/
 						// Recalculate calibration and tank volume now that user inputs are known
 						if (R > 1e-3f && H_MAX > 1e-3f) {  // Basic check before using in calculations (avoid zero/negative)
 							rawRefEstimated = estimateRawAtHeight(REF_HEIGHT_MM);
@@ -1757,13 +1804,23 @@
 							Blynk.setProperty(V6, "color", BLYNK_GREEN);
 							Blynk.setProperty(V7, "color", BLYNK_BLACK);
 							Blynk.virtualWrite(V7, String("SELECT THE MENU OPTION "));
+							
 						} else {
 							Blynk.virtualWrite(V10, String("CALIBRATION LOCKED"));
 							Blynk.setProperty(V10, "color", BLYNK_BLACK);
 							Blynk.setProperty(V2, "color", BLYNK_BLACK);
 							Blynk.setProperty(V6, "color", BLYNK_BLACK);
-							Blynk.virtualWrite(V7, String(" "));
+							Blynk.virtualWrite(V7, String("  "));
+							// Show 4× “NOT AVAILABLE” labels on the menu
+        Blynk.setProperty(V25, "labels",
+                          "NOT AVAILABLE",
+                          "NOT AVAILABLE",
+                          "NOT AVAILABLE",
+                          "NOT AVAILABLE");
+        // Force V11 back to zero
+        Blynk.virtualWrite(V11, 0);
 						}
+						updateMenus();
 					}
 
 					BLYNK_WRITE(V2) {
@@ -1825,7 +1882,11 @@
 									Blynk.virtualWrite(V7, String("CONE DEPTH: ") + CAP + "MM");
 								}
 								break;
-						}
+								 case 3:  // Raw-empty calibration
+                 Blynk.virtualWrite(V11, RAW_EMPTY);
+                 Blynk.virtualWrite(V7, String("VAT ZERO: ") + RAW_EMPTY);
+      break;
+						}		
 					}
 
 
@@ -1840,6 +1901,9 @@
 								else L = v;
 								break;
 							case 2: CAP = v; break;
+							case 3:
+             RAW_EMPTY = (int)v;   // save the new “empty” raw reading
+             break;
 						}
 						tankVolumeTotal = computeTankCapacity();
 						Serial.printf("[V11] Updated tankVolumeTotal: %.1f L\n", tankVolumeTotal);
@@ -1848,20 +1912,25 @@
 
 					// --- Update Both Menus Based on Orientation ---
 					void updateMenus() {
+						// if calibration is locked, show "NOT AVAILABLE" and bail out
+                  if (!VATButtonUnlock) {
+                      Blynk.setProperty(V25, "labels","   NOT AVAILABLE","   NOT AVAILABLE","   NOT AVAILABLE", "   NOT AVAILABLE");                                                                  
+    return;
+  }
 						if (orientation == 0) {
 							// Vertical vat: Diameter, Height, Slope Angle
-							Blynk.setProperty(V25, "labels", "Diameter of Vat", "Height of Vat", "Slope of Floor");
-							//Blynk.setProperty(V25, "values", "0,1,2");
+							Blynk.setProperty(V25, "labels", "  Diameter of Vat", "  Height of Vat", "  Slope of Floor", "   Zero Vat");
+							
 							optionSelectedMenu = 0;
 							Blynk.virtualWrite(V25, optionSelectedMenu);
 							// Cone menu disabled
-							Blynk.setProperty(V6, "labels", "None");
+							Blynk.setProperty(V6, "labels", " None ", " None ", " None ");
 							coneTYPE = 0;
 							Blynk.virtualWrite(V6, 0);
 						} else {
 							// Horizontal vat: Diameter, Length, Cone Depth
-							Blynk.setProperty(V25, "labels", "Diameter of Vat", "Length of Vat", "End Cap Depth (horizontal, mm)");
-							//Blynk.setProperty(V25, "values", "0,1,2");
+							Blynk.setProperty(V25, "labels", "   Diameter of Vat", "   Length of Vat", "End Cap Depth (horizontal, mm)", "   Zero Vat");
+							
 							optionSelectedMenu = 0;
 							Blynk.virtualWrite(V25, optionSelectedMenu);
 							// Enable cone type selection
@@ -1869,6 +1938,7 @@
 							if (coneTYPE == 0) coneTYPE = 1;
 							Blynk.virtualWrite(V6, coneTYPE - 1);
 						}
+
 					}
 
-					////////////////////////////////////////by Rusty61 ////////////////////////////////////////////////////////////////////////
+					////////////////////////////////////////by Rusty61 30_05_25 ////////////////////////////////////////////////////////////////////////
