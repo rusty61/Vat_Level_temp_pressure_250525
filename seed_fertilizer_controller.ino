@@ -181,25 +181,25 @@ void create_calibration_screen() {
   lv_obj_align(seed_time_label, LV_ALIGN_TOP_LEFT, 10, 100);
   lv_label_set_text(seed_time_label, "--/--/----");
 
-  lv_obj_add_event_cb(seed_btn, [=](lv_event_t *e) {
-    float weight = atof(lv_textarea_get_text(seed_input));
+  lv_obj_add_event_cb(seed_btn, [](lv_event_t *e) {
+    lv_obj_t* seed_input_ta = (lv_obj_t*)lv_event_get_user_data(e);
+    float weight = atof(lv_textarea_get_text(seed_input_ta));
     if (weight >= 1.0 && weight <= 20000.0) {
-      grams_per_rev = weight / CALIBRATION_REVOLUTIONS; // Hardcoded 35.0 revs
-      Preferences prefs; // Needs #include <Preferences.h>
+      grams_per_rev = weight / CALIBRATION_REVOLUTIONS;
+      Preferences prefs;
       prefs.begin("calib", false);
       prefs.putFloat("gpr_seed", grams_per_rev);
-      time_t seed_time = time(NULL); // Needs #include <time.h>
+      time_t seed_time = time(NULL);
       prefs.putLong64("seed_time", seed_time);
       prefs.end();
       char date_buf[16];
-      strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&seed_time)); // Needs #include <time.h>
-      lv_label_set_text(seed_time_label, date_buf);
-      // lv_msgbox_create(NULL, "Saved", "Seed calibrated! (Simulated Save)", NULL, true); // Placeholder for actual save
+      strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&seed_time));
+      lv_label_set_text(seed_time_label, date_buf); // seed_time_label is global
       lv_msgbox_create(NULL, "Saved", "Seed Calibrated & Saved!", NULL, true);
     } else {
-       lv_msgbox_create(NULL, "Error", "Invalid weight (1-20000g)", NULL, true);
+      lv_msgbox_create(NULL, "Error", "Invalid weight (1-20000g)", NULL, true);
     }
-  }, LV_EVENT_CLICKED, NULL);
+  }, LV_EVENT_CLICKED, seed_input); // Pass seed_input as user_data
 
   // Fert calibration
   lv_obj_t *fert_input = lv_textarea_create(calib_screen);
@@ -216,25 +216,25 @@ void create_calibration_screen() {
   lv_obj_align(fert_time_label, LV_ALIGN_TOP_LEFT, 10, 160);
   lv_label_set_text(fert_time_label, "--/--/----");
 
-  lv_obj_add_event_cb(fert_btn, [=](lv_event_t *e) {
-    float weight = atof(lv_textarea_get_text(fert_input));
+  lv_obj_add_event_cb(fert_btn, [](lv_event_t *e) {
+    lv_obj_t* fert_input_ta = (lv_obj_t*)lv_event_get_user_data(e);
+    float weight = atof(lv_textarea_get_text(fert_input_ta));
     if (weight >= 1.0 && weight <= 20000.0) {
-      gpr_fert = weight / CALIBRATION_REVOLUTIONS; // Hardcoded 35.0 revs
-      Preferences prefs; // Needs #include <Preferences.h>
+      gpr_fert = weight / CALIBRATION_REVOLUTIONS;
+      Preferences prefs;
       prefs.begin("calib", false);
       prefs.putFloat("gpr_fert", gpr_fert);
-      time_t fert_time = time(NULL); // Needs #include <time.h>
+      time_t fert_time = time(NULL);
       prefs.putLong64("fert_time", fert_time);
       prefs.end();
       char date_buf[16];
-      strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&fert_time)); // Needs #include <time.h>
-      lv_label_set_text(fert_time_label, date_buf);
-      // lv_msgbox_create(NULL, "Saved", "Fertiliser calibrated! (Simulated Save)", NULL, true); // Placeholder for actual save
+      strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&fert_time));
+      lv_label_set_text(fert_time_label, date_buf); // fert_time_label is global
       lv_msgbox_create(NULL, "Saved", "Fertiliser Calibrated & Saved!", NULL, true);
     } else {
       lv_msgbox_create(NULL, "Error", "Invalid weight (1-20000g)", NULL, true);
     }
-  }, LV_EVENT_CLICKED, NULL);
+  }, LV_EVENT_CLICKED, fert_input); // Pass fert_input as user_data
 }
 
 void setup() {
