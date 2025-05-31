@@ -1,4 +1,3 @@
-#define LV_CONF_INCLUDE_SIMPLE
 #include <Arduino.h>
 #include <Waveshare_ST7262_LVGL.h>
 #include <lvgl.h>
@@ -27,24 +26,27 @@ void update_motor_rate() {
   const char* target_rate_str = lv_textarea_get_text(seed_rate_input);
   target_rate = atof(target_rate_str);
   if (target_rate < 2.0 || target_rate > 400.0) {
+<<<<<<< Updated upstream
+      // Basic check if atof failed or input was non-numeric leading to 0.0,
+      // or if the number is genuinely out of the desired operational range.
+      // atof returns 0.0 for non-convertible strings.
+      // If target_rate_str is not empty and target_rate is 0.0, it's likely a parse error.
+      // However, the range check < 2.0 already covers 0.0.
+      lv_msgbox_create(NULL, "Input Error", "Target rate must be between 2.0 and 400.0 kg/ha.", NULL, true);
+=======
       lv_obj_t *mbox1 = lv_msgbox_create(NULL);
       lv_msgbox_set_title(mbox1, "Input Error");
       lv_msgbox_set_text(mbox1, "Target rate must be between 2.0 and 400.0 kg/ha.");
       lv_msgbox_add_close_button(mbox1);
+>>>>>>> Stashed changes
       return;
   }
   if (grams_per_rev < 0.01) {
-    lv_obj_t *mbox2 = lv_msgbox_create(NULL);
-    lv_msgbox_set_title(mbox2, "Seed Calibration");
-    lv_msgbox_set_text(mbox2, "Missing or invalid calibration");
-    lv_msgbox_add_close_button(mbox2);
+    lv_msgbox_create(NULL, "Seed Calibration", "Missing or invalid calibration", NULL, true);
     return;
   }
   if (gpr_fert < 0.01) {
-    lv_obj_t *mbox3 = lv_msgbox_create(NULL);
-    lv_msgbox_set_title(mbox3, "Fert Calibration");
-    lv_msgbox_set_text(mbox3, "Missing or invalid calibration");
-    lv_msgbox_add_close_button(mbox3);
+    lv_msgbox_create(NULL, "Fert Calibration", "Missing or invalid calibration", NULL, true);
     return;
   }
 
@@ -193,16 +195,18 @@ void create_calibration_screen() {
       prefs.end();
       char date_buf[16];
       strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&seed_time));
+<<<<<<< Updated upstream
+      lv_label_set_text(seed_time_label, date_buf); // seed_time_label is global
+      lv_msgbox_create(NULL, "Saved", "Seed Calibrated & Saved!", NULL, true);
+=======
       lv_label_set_text(seed_time_label, date_buf);
       lv_obj_t *mbox_seed_saved = lv_msgbox_create(NULL);
       lv_msgbox_set_title(mbox_seed_saved, "Saved");
       lv_msgbox_set_text(mbox_seed_saved, "Seed Calibrated & Saved!");
       lv_msgbox_add_close_button(mbox_seed_saved);
+>>>>>>> Stashed changes
     } else {
-      lv_obj_t *mbox_seed_error = lv_msgbox_create(NULL);
-      lv_msgbox_set_title(mbox_seed_error, "Error");
-      lv_msgbox_set_text(mbox_seed_error, "Invalid weight (1-20000g)");
-      lv_msgbox_add_close_button(mbox_seed_error);
+      lv_msgbox_create(NULL, "Error", "Invalid weight (1-20000g)", NULL, true);
     }
   }, LV_EVENT_CLICKED, seed_input);
 
@@ -234,16 +238,18 @@ void create_calibration_screen() {
       prefs.end();
       char date_buf[16];
       strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&fert_time));
+<<<<<<< Updated upstream
+      lv_label_set_text(fert_time_label, date_buf); // fert_time_label is global
+      lv_msgbox_create(NULL, "Saved", "Fertiliser Calibrated & Saved!", NULL, true);
+=======
       lv_label_set_text(fert_time_label, date_buf);
       lv_obj_t *mbox_fert_saved = lv_msgbox_create(NULL);
       lv_msgbox_set_title(mbox_fert_saved, "Saved");
       lv_msgbox_set_text(mbox_fert_saved, "Fertiliser Calibrated & Saved!");
       lv_msgbox_add_close_button(mbox_fert_saved);
+>>>>>>> Stashed changes
     } else {
-      lv_obj_t *mbox_fert_error = lv_msgbox_create(NULL);
-      lv_msgbox_set_title(mbox_fert_error, "Error");
-      lv_msgbox_set_text(mbox_fert_error, "Invalid weight (1-20000g)");
-      lv_msgbox_add_close_button(mbox_fert_error);
+      lv_msgbox_create(NULL, "Error", "Invalid weight (1-20000g)", NULL, true);
     }
   }, LV_EVENT_CLICKED, fert_input);
 }
