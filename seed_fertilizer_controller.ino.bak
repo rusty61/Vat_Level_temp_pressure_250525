@@ -1,11 +1,10 @@
-#define LV_CONF_INCLUDE_SIMPLE
 #include <Arduino.h>
 #include <Waveshare_ST7262_LVGL.h>
 #include <lvgl.h>
 #include <Preferences.h>
 #include <time.h>
 
-#define BUZZER_PIN GPIO_NUM_4 // Example pin, can be changed
+#define BUZZER_PIN 4 // Use 4 for Arduino pin
 
 // --- Variables ---
 lv_obj_t *seed_rate_input, *fert_rate_input, *flow_label;
@@ -27,37 +26,29 @@ void update_motor_rate() {
   const char* target_rate_str = lv_textarea_get_text(seed_rate_input);
   target_rate = atof(target_rate_str);
   if (target_rate < 2.0 || target_rate > 400.0) {
+<<<<<<< Updated upstream
       // Basic check if atof failed or input was non-numeric leading to 0.0,
       // or if the number is genuinely out of the desired operational range.
       // atof returns 0.0 for non-convertible strings.
       // If target_rate_str is not empty and target_rate is 0.0, it's likely a parse error.
       // However, the range check < 2.0 already covers 0.0.
+      lv_msgbox_create(NULL, "Input Error", "Target rate must be between 2.0 and 400.0 kg/ha.", NULL, true);
+=======
       lv_obj_t *mbox1 = lv_msgbox_create(NULL);
       lv_msgbox_set_title(mbox1, "Input Error");
       lv_msgbox_set_text(mbox1, "Target rate must be between 2.0 and 400.0 kg/ha.");
       lv_msgbox_add_close_button(mbox1);
+>>>>>>> Stashed changes
       return;
   }
   if (grams_per_rev < 0.01) {
-    lv_obj_t *mbox2 = lv_msgbox_create(NULL);
-    lv_msgbox_set_title(mbox2, "Seed Calibration");
-    lv_msgbox_set_text(mbox2, "Missing or invalid calibration");
-    lv_msgbox_add_close_button(mbox2);
+    lv_msgbox_create(NULL, "Seed Calibration", "Missing or invalid calibration", NULL, true);
     return;
   }
   if (gpr_fert < 0.01) {
-    lv_obj_t *mbox3 = lv_msgbox_create(NULL);
-    lv_msgbox_set_title(mbox3, "Fert Calibration");
-    lv_msgbox_set_text(mbox3, "Missing or invalid calibration");
-    lv_msgbox_add_close_button(mbox3);
+    lv_msgbox_create(NULL, "Fert Calibration", "Missing or invalid calibration", NULL, true);
     return;
   }
-
-  // TODO: Implement fertilizer flow calculation and control logic.
-  // The following variables are available:
-  // - gpr_fert (fertilizer grams/revolution, from calibration screen)
-  // - fert_rate_input (lv_obj_t* for target fertilizer rate from main screen UI)
-  // - A separate revs_per_sec calculation might be needed if fertilizer uses a different mechanism.
 
   float revs_per_sec = (gps_speed_kmph * 1000.0 / 3600.0) / METERS_PER_DRIVE_REVOLUTION;
   float grams_per_sec = grams_per_rev * revs_per_sec;
@@ -99,11 +90,11 @@ void create_ui() {
   lv_textarea_set_placeholder_text(gps_input, "GPS Speed (km/h)");
   lv_textarea_set_text(gps_input, String(gps_speed_kmph).c_str());
   lv_obj_add_event_cb(gps_input, [](lv_event_t *e) {
-    gps_speed_kmph = atof(lv_textarea_get_text((lv_obj_t *)e->target));
+    lv_obj_t *ta = lv_event_get_target(e);
+    gps_speed_kmph = atof(lv_textarea_get_text(ta));
   }, LV_EVENT_VALUE_CHANGED, NULL);
 
-  // main_screen is already created and loaded above
-  lv_obj_t *scr = main_screen; // Or lv_scr_act(), but main_screen is explicitly loaded
+  lv_obj_t *scr = main_screen;
 
   // Seed rate input
   seed_rate_input = lv_textarea_create(scr);
@@ -149,18 +140,18 @@ void create_ui() {
   lv_obj_align(seed_bar, LV_ALIGN_TOP_RIGHT, -50, 10);
   lv_bar_set_range(seed_bar, 0, 300); // Assuming mm
   lv_bar_set_value(seed_bar, seed_level_mm, LV_ANIM_OFF);
-  lv_obj_t *seed_bar_lbl = lv_label_create(scr); // Changed variable name
+  lv_obj_t *seed_bar_lbl = lv_label_create(scr);
   lv_label_set_text(seed_bar_lbl, "Seed");
-  lv_obj_align_to(seed_bar_lbl, seed_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
+  lv_obj_align(seed_bar_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
 
   fert_bar = lv_bar_create(scr);
   lv_obj_set_size(fert_bar, 20, 100);
   lv_obj_align(fert_bar, LV_ALIGN_TOP_RIGHT, -20, 10);
   lv_bar_set_range(fert_bar, 0, 300); // Assuming mm
   lv_bar_set_value(fert_bar, fert_level_mm, LV_ANIM_OFF);
-  lv_obj_t *fert_bar_lbl = lv_label_create(scr); // Changed variable name
+  lv_obj_t *fert_bar_lbl = lv_label_create(scr);
   lv_label_set_text(fert_bar_lbl, "Fert");
-  lv_obj_align_to(fert_bar_lbl, fert_bar, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
+  lv_obj_align(fert_bar_lbl, LV_ALIGN_OUT_BOTTOM_MID, 0, 5);
 }
 
 lv_obj_t *seed_time_label;
@@ -184,7 +175,7 @@ void create_calibration_screen() {
 
   lv_obj_t *seed_btn = lv_btn_create(calib_screen);
   lv_obj_align(seed_btn, LV_ALIGN_TOP_LEFT, 180, 60);
-  lv_obj_t *seed_btn_lbl = lv_label_create(seed_btn); // Changed variable name
+  lv_obj_t *seed_btn_lbl = lv_label_create(seed_btn);
   lv_label_set_text(seed_btn_lbl, "Save Seed");
   lv_obj_center(seed_btn_lbl);
   seed_time_label = lv_label_create(calib_screen);
@@ -204,18 +195,20 @@ void create_calibration_screen() {
       prefs.end();
       char date_buf[16];
       strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&seed_time));
+<<<<<<< Updated upstream
       lv_label_set_text(seed_time_label, date_buf); // seed_time_label is global
+      lv_msgbox_create(NULL, "Saved", "Seed Calibrated & Saved!", NULL, true);
+=======
+      lv_label_set_text(seed_time_label, date_buf);
       lv_obj_t *mbox_seed_saved = lv_msgbox_create(NULL);
       lv_msgbox_set_title(mbox_seed_saved, "Saved");
       lv_msgbox_set_text(mbox_seed_saved, "Seed Calibrated & Saved!");
       lv_msgbox_add_close_button(mbox_seed_saved);
+>>>>>>> Stashed changes
     } else {
-      lv_obj_t *mbox_seed_error = lv_msgbox_create(NULL);
-      lv_msgbox_set_title(mbox_seed_error, "Error");
-      lv_msgbox_set_text(mbox_seed_error, "Invalid weight (1-20000g)");
-      lv_msgbox_add_close_button(mbox_seed_error);
+      lv_msgbox_create(NULL, "Error", "Invalid weight (1-20000g)", NULL, true);
     }
-  }, LV_EVENT_CLICKED, seed_input); // Pass seed_input as user_data
+  }, LV_EVENT_CLICKED, seed_input);
 
   // Fert calibration
   lv_obj_t *fert_input = lv_textarea_create(calib_screen);
@@ -225,7 +218,7 @@ void create_calibration_screen() {
 
   lv_obj_t *fert_btn = lv_btn_create(calib_screen);
   lv_obj_align(fert_btn, LV_ALIGN_TOP_LEFT, 180, 120);
-  lv_obj_t *fert_btn_lbl = lv_label_create(fert_btn); // Changed variable name
+  lv_obj_t *fert_btn_lbl = lv_label_create(fert_btn);
   lv_label_set_text(fert_btn_lbl, "Save Fert");
   lv_obj_center(fert_btn_lbl);
   fert_time_label = lv_label_create(calib_screen);
@@ -245,48 +238,50 @@ void create_calibration_screen() {
       prefs.end();
       char date_buf[16];
       strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&fert_time));
+<<<<<<< Updated upstream
       lv_label_set_text(fert_time_label, date_buf); // fert_time_label is global
+      lv_msgbox_create(NULL, "Saved", "Fertiliser Calibrated & Saved!", NULL, true);
+=======
+      lv_label_set_text(fert_time_label, date_buf);
       lv_obj_t *mbox_fert_saved = lv_msgbox_create(NULL);
       lv_msgbox_set_title(mbox_fert_saved, "Saved");
       lv_msgbox_set_text(mbox_fert_saved, "Fertiliser Calibrated & Saved!");
       lv_msgbox_add_close_button(mbox_fert_saved);
+>>>>>>> Stashed changes
     } else {
-      lv_obj_t *mbox_fert_error = lv_msgbox_create(NULL);
-      lv_msgbox_set_title(mbox_fert_error, "Error");
-      lv_msgbox_set_text(mbox_fert_error, "Invalid weight (1-20000g)");
-      lv_msgbox_add_close_button(mbox_fert_error);
+      lv_msgbox_create(NULL, "Error", "Invalid weight (1-20000g)", NULL, true);
     }
-  }, LV_EVENT_CLICKED, fert_input); // Pass fert_input as user_data
+  }, LV_EVENT_CLICKED, fert_input);
 }
 
 void setup() {
   // IMPORTANT: For accurate date/time stamping, ensure ESP32 system time is synchronized (e.g., via NTP or a hardware RTC).
-  // Serial.begin(115200); // For debugging
+  // Serial.begin(115200);
   pinMode(BUZZER_PIN, OUTPUT);
-  digitalWrite(BUZZER_PIN, LOW); // Ensure buzzer is off initially
-  Waveshare_ST7262::begin();
-  lvgl_setup(); // Assuming this initializes LVGL subsystems like display and input drivers
+  digitalWrite(BUZZER_PIN, LOW);
+  // Uncomment if supported by your library:
+  // Waveshare_ST7262::begin();
+  // lvgl_setup();
 
-  Preferences prefs; // Needs #include <Preferences.h>
-  prefs.begin("calib", true); // Read-only mode for setup
+  Preferences prefs;
+  prefs.begin("calib", true);
   grams_per_rev = prefs.getFloat("gpr_seed", grams_per_rev);
   gpr_fert = prefs.getFloat("gpr_fert", gpr_fert);
   time_t seed_ts = prefs.getLong64("seed_time", 0);
   time_t fert_ts = prefs.getLong64("fert_time", 0);
   prefs.end();
 
-  create_calibration_screen(); // Create it first
-  create_ui(); // Create main UI, which will be loaded by default by lv_scr_load in create_ui
+  create_calibration_screen();
+  create_ui();
 
-  // Load stored calibration times after UI is created so labels exist
-  if (seed_ts > 0 && seed_time_label) { // Check if label exists
+  if (seed_ts > 0 && seed_time_label) {
     char date_buf[16];
-    strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&seed_ts)); // Needs #include <time.h>
+    strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&seed_ts));
     lv_label_set_text(seed_time_label, date_buf);
   }
-  if (fert_ts > 0 && fert_time_label) { // Check if label exists
+  if (fert_ts > 0 && fert_time_label) {
     char date_buf[16];
-    strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&fert_ts)); // Needs #include <time.h>
+    strftime(date_buf, sizeof(date_buf), "%d/%m/%Y", localtime(&fert_ts));
     lv_label_set_text(fert_time_label, date_buf);
   }
 }
